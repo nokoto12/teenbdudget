@@ -1,3 +1,20 @@
+/**
+ * @license
+ * Copyright 2022 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { useState, useEffect } from 'react';
 import { Avatar, Button, Dialog, DialogActions, DialogContent, Link, Stack, TextField, Typography } from '@mui/material';
 import AdapterDateFns from '@mui/lab/AdapterDateFns';
@@ -13,7 +30,9 @@ import styles from '../styles/expenseDialog.module.scss';
 
 const DEFAULT_FILE_NAME = "No file selected";
 
+// Default form state for the dialog
 const DEFAULT_FORM_STATE = {
+  address: "",
   amount: "",
   date: null,
   fileName: DEFAULT_FILE_NAME,
@@ -22,12 +41,23 @@ const DEFAULT_FORM_STATE = {
   imageUrl: "",
   isConfirmed: false,
   items: "",
+  locationName: "",
 };
 
 const ADD_EXPENSE_TITLE = "Add Expense";
 const EDIT_EXPENSE_TITLE = "Edit Expense";
 const CONFIRM_EXPENSE_TITLE = "Confirm Expense";
 
+/* 
+ Dialog to input receipt information
+ 
+ props:
+  - receipt is the receipt to edit if the dialog is being opened to edit, otherwise {}
+  - action is the action for which this dialog was opened
+  - onError emits to notify error occurred
+  - onSuccess emits to notify successfully saving receipt
+  - onCloseDialog emits to close dialog
+ */
 export default function expenseDialog(props) {
   const isAdd = props.action === RECEIPTS_ENUM.add;
   const isEdit = props.action === RECEIPTS_ENUM.edit;
@@ -37,6 +67,7 @@ export default function expenseDialog(props) {
   const [formFields, setFormFields] = useState((isEdit || isConfirm) ? props.receipt : DEFAULT_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Set dialog title based on action
   let dialogTitle = ADD_EXPENSE_TITLE;
   if (isEdit) {
     dialogTitle = EDIT_EXPENSE_TITLE;
@@ -44,17 +75,21 @@ export default function expenseDialog(props) {
     dialogTitle = CONFIRM_EXPENSE_TITLE;
   }
 
+  // If the receipt to edit or whether to close or open the dialog ever changes, reset the form fields
   useEffect(() => {
     if (props.showDialog) {
       setFormFields(isEdit ? props.edit : DEFAULT_FORM_STATE);
     }
   }, [props.edit, props.showDialog])
 
+  // Check whether any of the form fields are unedited
   const isDisabled = () => 
     !isAdd ? 
-      formFields.fileName === DEFAULT_FILE_NAME || !formFields.date
-      || formFields.items.length === 0 || formFields.amount.length === 0 :formFields.fileName === DEFAULT_FILE_NAME;
+      formFields.fileName === DEFAULT_FILE_NAME || !formFields.date || formFields.locationName.length === 0 
+             || formFields.address.length === 0 || formFields.items.length === 0 || formFields.amount.length === 0 :
+      formFields.fileName === DEFAULT_FILE_NAME;
 
+  // Set the relevant fields for receipt image
   const setFileData = (target) => {
     const file = target.files[0];
     setFormFields(prevState => ({...prevState, fileName: file.name}));
@@ -71,24 +106,30 @@ export default function expenseDialog(props) {
 
     try {
       if (isAdd) {
+        // Adding receipt
+        // Store image into Storage
         const bucket = await uploadImage(formFields.file, authUser.uid);
 
         if (ocrFeatureFlag) {
+          // Trigger Cloud Function
         } else {
-          await addReceipt(authUser.uid, formFields.date, formFields.items, formFields.amount, bucket);
+          await addReceipt(authUser.uid, formFields.date, formFields.locationName, formFields.address, formFields.items, formFields.amount, bucket);
         }
       } else {
+        // Confirming or updating receipt (not allowing re-upload of images)
         if (!ocrFeatureFlag && formFields.fileName) {
+          // Store image into Storage
           await replaceImage(formFields.file, formFields.imageBucket);
         }
-        await updateReceipt(formFields.id, authUser.uid, formFields.date,
-            formFields.items, formFields.amount, formFields.imageBucket, true);
+        // Update receipt in Firestore
+        await updateReceipt(formFields.id, authUser.uid, formFields.date, formFields.locationName, formFields.address, formFields.items, formFields.amount, formFields.imageBucket, true);
       }
       props.onSuccess(props.action);
     } catch (error) {
       props.onError(props.action);
     }
 
+    // Clear all form data
     closeDialog();
   };
 
@@ -128,6 +169,8 @@ export default function expenseDialog(props) {
                 renderInput={(params) => <TextField {...params} />}
               />
             </LocalizationProvider>
+            <TextField color="tertiary" label="Location name" variant="standard" value={formFields.locationName} onChange={(event) => setFormFields(prevState => ({...prevState, locationName: event.target.value}))} />
+            <TextField color="tertiary" label="Location address" variant="standard" value={formFields.address} onChange={(event) => setFormFields(prevState => ({...prevState, address: event.target.value}))} />
             <TextField color="tertiary" label="Items" variant="standard" value={formFields.items} onChange={(event) => setFormFields(prevState => ({...prevState, items: event.target.value}))}/>
             <TextField color="tertiary" label="Amount" variant="standard" value={formFields.amount} onChange={(event) => setFormFields(prevState => ({...prevState, amount: event.target.value}))} />
           </Stack> : <div></div>

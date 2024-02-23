@@ -1,3 +1,20 @@
+/**
+ * @license
+ * Copyright 2022 Google LLC
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { useState, useEffect } from 'react';
 import Head from 'next/head'
 import { useRouter } from 'next/router';
@@ -50,6 +67,7 @@ export default function Home() {
   const router = useRouter();
   const [action, setAction] = useState(RECEIPTS_ENUM.none);
   
+  // State involved in loading, setting, deleting, and updating receipts
   const [allReceipts, setAllReceipts] = useState([]);
   const [isLoadingReceipts, setIsLoadingReceipts] = useState(true);
   const [deleteReceiptId, setDeleteReceiptId] = useState("");
@@ -58,6 +76,7 @@ export default function Home() {
   const [toConfirmReceipts, setToConfirmReceipts] = useState([]);
   const [updateReceipt, setUpdateReceipt] = useState({});
 
+  // State involved in snackbar
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [showSuccessSnackbar, setSuccessSnackbar] = useState(false);
   const [showErrorSnackbar, setErrorSnackbar] = useState(false);
@@ -71,6 +90,7 @@ export default function Home() {
     }
   }
 
+  // Listen for changes on loading and authUser, redirect if needed
   useEffect(() => {
     if (!isLoading && !authUser) {
       router.push('/');
@@ -85,6 +105,7 @@ export default function Home() {
     }
   }, [authUser, ocrFeatureFlag])
 
+  // Sets appropriate snackbar message on whether @isSuccess and updates shown receipts if necessary
   const onResult = async (receiptEnum, isSuccess) => {
     setSnackbarMessage(isSuccess ? SUCCESS_MAP[receiptEnum] : ERROR_MAP[receiptEnum]);
     isSuccess ? setSuccessSnackbar(true) : setErrorSnackbar(true);
@@ -115,6 +136,7 @@ export default function Home() {
     setDeleteReceiptId("");
   }
 
+  // Delete receipt image from Storage
   const onDelete = async () => {
     let isSucceed = true;
     try {
@@ -147,7 +169,7 @@ export default function Home() {
     <CircularProgress color="inherit" sx={{ marginLeft: '50%', marginTop: '25%' }}/> :
     <div>
       <Head>
-        <title>TeenBudget</title>
+        <title>Expense Tracker</title>
       </Head>
 
       <NavBar />
@@ -172,7 +194,7 @@ export default function Home() {
         }
         <Stack direction="row" sx={{ paddingTop: "1.5em" }}>
           <Typography variant="h4" sx={{ lineHeight: 2, paddingRight: "0.5em" }}>
-            РАЗХОДИ
+            EXPENSES
           </Typography>
           <IconButton aria-label="edit" color="secondary" className={styles.addButton}
                       onClick={() => setAction(RECEIPTS_ENUM.add)}>
